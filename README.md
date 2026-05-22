@@ -12,11 +12,15 @@ converts it to a volume change using the cup's inner cross-section.
 
 | Path | Description |
 | --- | --- |
-| `reshot.MOV` | Source video (1920x1080, 30 fps, 64 s) |
-| `results/analyze.py` | Full pipeline (calibration, detection, plotting) |
+| `results/analyze.py` | Full pipeline (calibration, detection, plotting, annotated-video render) |
 | `results/level_and_volume.png` | Main plot: level, ΔV, and detector confidence vs time |
 | `results/level_volume.csv` | Per-frame data |
 | `results/overlay_montage.jpg` | Six sample frames with the detected meniscus drawn |
+
+Videos (source `reshot.MOV` and the rendered `results/annotated.mp4`) are kept
+out of the repo via `.gitignore` to keep clones small. Drop `reshot.MOV` next
+to this README and re-run `results/analyze.py` to regenerate the outputs and
+`annotated.mp4`.
 
 ## Method
 
@@ -30,8 +34,8 @@ converts it to a volume change using the cup's inner cross-section.
    A search window seeded from the previous detection (±180 px) prevents
    spurious far-away matches.
 3. **Smoothing** — 5-pt median filter, then 11-pt Savitzky-Golay (order 2).
-4. **Volume** — assume a cylindrical cup with inner diameter `D = 8 cm`, so
-   `A = π (D/2)² ≈ 50.27 cm² = 50.27 mL/cm`. Then `ΔV(t) = A · (h(t) − h₀)`,
+4. **Volume** — cylindrical cup, inner diameter `D = 9.0 cm` (measured), so
+   `A = π (D/2)² ≈ 63.62 cm² = 63.62 mL/cm`. Then `ΔV(t) = A · (h(t) − h₀)`,
    where `h₀` is the median level over the first 2 s of the analysis window.
 
 ## Results
@@ -40,7 +44,7 @@ converts it to a volume change using the cup's inner cross-section.
 | --- | --- |
 | Analysis window | t = 10 s … 64 s (dye-mixing settling at start excluded) |
 | Water level range | 14.0 – 18.6 cm (swing 4.6 cm) |
-| ΔV range | −132 – +99 mL (swing ≈ 231 mL) |
+| ΔV range | −167 – +125 mL (swing ≈ 292 mL) |
 | Period | ≈ 7.8 s (≈ 7.7 cycles/min) |
 | Baseline (h₀) | 16.67 cm |
 
@@ -59,10 +63,12 @@ Dependencies: Python 3 with `opencv-python`, `numpy`, `scipy`, `matplotlib`.
 
 ## Caveats
 
-- Cup inner diameter (8 cm) was supplied by hand. A direct measurement would
-  improve the volume calibration.
-- Detector confidence dips during troughs because less of the ruler is
-  wet/red; the smoothed trace stays reasonable but raw values are noisier.
 - The 2nd-degree perspective fit has residuals up to ±0.4 cm in places —
   the absolute level numbers should be read as approximate (±0.5 cm).
   The swing and period are robust.
+- At peaks the dye gradient is gentle (densest at cup bottom, fading
+  upward), so the detected meniscus may sit slightly above the visually
+  obvious "red line." A spot-check at troughs (t ≈ 40 s, 60 s) shows the
+  detection landing right on the meniscus.
+- Detector confidence dips during troughs because less of the ruler is
+  wet/red; the smoothed trace stays reasonable but raw values are noisier.
