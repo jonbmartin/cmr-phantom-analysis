@@ -1,26 +1,43 @@
 # CMR phantom water-level analysis
 
-A short experiment: track the rising and falling water level in a clear cup
-with a steel ruler dipped in it, while a displacer (orange ball) is moved
-in and out of the water. The water has a faint red dye to make the wet/dry
-boundary on the ruler easier to see.
+A short experiment: the water level in a clear cylindrical column rises and
+falls under a pulsatile flow driver, with a steel ruler dipped in for scale.
+The water carries a faint red dye to make the meniscus easier to see.
 
-The analysis script extracts water level vs time from the video, then
-converts it to a volume change using the cup's inner cross-section.
+The repo contains a small toolchain to extract water level vs time from the
+video and convert it to a volume change using the column's inner
+cross-section.
+
+## Workflow
+
+```sh
+# 1. drop reshot.MOV next to this README (not committed; see .gitignore)
+# 2. annotate the meniscus on ~130 keyframes (every 0.5 s)
+python3 results/annotate.py
+
+# 3. interpolate + smooth + render outputs
+python3 results/process_clicks.py
+```
+
+`annotate.py` autosaves on every click, so you can stop and resume. Keys:
+**click** to record, **z** to undo, **s** to skip an occluded frame,
+**a / d** (or arrow keys) to step prev/next, **q** to save and exit.
 
 ## Files
 
 | Path | Description |
 | --- | --- |
-| `results/analyze.py` | Full pipeline (calibration, detection, plotting, annotated-video render) |
-| `results/level_and_volume.png` | Main plot: level, ΔV, and detector confidence vs time |
+| `results/annotate.py` | OpenCV mouse-click meniscus annotation tool |
+| `results/process_clicks.py` | Loads `clicks.json`, interpolates per-frame, renders outputs |
+| `results/clicks.json` | The clicks (frame, time, pixel-y) |
+| `results/level_and_volume.png` | Main plot: level + ΔV vs time |
 | `results/level_volume.csv` | Per-frame data |
-| `results/overlay_montage.jpg` | Six sample frames with the detected meniscus drawn |
 
-Videos (source `reshot.MOV` and the rendered `results/annotated.mp4`) are kept
-out of the repo via `.gitignore` to keep clones small. Drop `reshot.MOV` next
-to this README and re-run `results/analyze.py` to regenerate the outputs and
-`annotated.mp4`.
+Source video (`reshot.MOV`) and the rendered overlay (`annotated.mp4`) are
+kept out of the repo via `.gitignore` to keep clones small. Drop the video
+next to this README and re-run the two scripts to regenerate everything,
+including `annotated.mp4` (a 1152×648 mp4v overlay showing the meniscus
+line, level, ΔV, and a moving time marker).
 
 ## Method
 
@@ -28,47 +45,34 @@ to this README and re-run `results/analyze.py` to regenerate the outputs and
    hand from a still frame and fit with a 2nd-degree polynomial
    `cm = f(pixel_y)` (the ruler tilts slightly in perspective, so the
    pixels-per-cm changes from ~125 at the top to ~75 at the bottom).
-2. **Meniscus detection** — every 3rd frame (~10 Hz), inside a fixed ROI on
-   the ruler shaft, find the row with the strongest bright-to-dark step in
-   brightness (averaged across the ROI width), plus a redness-step term.
-   A search window seeded from the previous detection (±180 px) prevents
-   spurious far-away matches.
-3. **Smoothing** — 5-pt median filter, then 11-pt Savitzky-Golay (order 2).
-4. **Volume** — cylindrical cup, inner diameter `D = 9.0 cm` (measured), so
-   `A = π (D/2)² ≈ 63.62 cm² = 63.62 mL/cm`. Then `ΔV(t) = A · (h(t) − h₀)`,
-   where `h₀` is the median level over the first 2 s of the analysis window.
+2. **Annotation** — every 0.5 s, the user clicks the meniscus on a high-zoom
+   crop of the ruler region. Around 130 clicks for a 64 s clip.
+3. **Interpolation** — per-frame level by linear interpolation between
+   clicks, then a 25-point Savitzky-Golay (order 3) low-pass.
+4. **Volume** — cylindrical column, inner diameter `D = 9.0 cm` (measured),
+   so `A = π (D/2)² ≈ 63.62 cm² = 63.62 mL/cm`. Then
+   `ΔV(t) = A · (h(t) − h₀)`, where `h₀` is the median of the first 2 s.
 
 ## Results
 
 | Quantity | Value |
 | --- | --- |
-| Analysis window | t = 10 s … 64 s (dye-mixing settling at start excluded) |
-| Water level range | 14.0 – 18.6 cm (swing 4.6 cm) |
-| ΔV range | −167 – +125 mL (swing ≈ 292 mL) |
-| Period | ≈ 7.8 s (≈ 7.7 cycles/min) |
-| Baseline (h₀) | 16.67 cm |
+| Water level range | 14.18 – 17.07 cm (swing ≈ 2.9 cm) |
+| ΔV range | −19 – +165 mL (swing ≈ 184 mL) |
+| Period | ≈ 7.7 s (≈ 7.8 cycles/min) |
+| Baseline (h₀) | 14.62 cm |
 
-The first cycle (~t = 5 s) reads ~1 cm high because dye splashes during
-mixing produced a misleading brightness step; that's why the first 10 s
-are excluded from the summary stats.
+## Why manual?
 
-## Reproducing
+I started with several auto-detection approaches (V-step, redness-step,
+V·R conjunction, specular-shine peak). Each could reproduce the broad
+periodic structure but kept being fooled at peaks by competing features —
+the wet-film boundary above the actual meniscus, the cup rim, glare on
+the ruler, and the dye-density gradient near the cup bottom. A search
+window seeded from prior detections cured one mode and introduced another.
+Manual annotation took about 10 minutes of clicking and produced a
+visibly clean curve, with cycle-to-cycle consistency well below the
+±0.5 cm calibration error.
 
-```sh
-cd results
-python3 analyze.py
-```
-
-Dependencies: Python 3 with `opencv-python`, `numpy`, `scipy`, `matplotlib`.
-
-## Caveats
-
-- The 2nd-degree perspective fit has residuals up to ±0.4 cm in places —
-  the absolute level numbers should be read as approximate (±0.5 cm).
-  The swing and period are robust.
-- At peaks the dye gradient is gentle (densest at cup bottom, fading
-  upward), so the detected meniscus may sit slightly above the visually
-  obvious "red line." A spot-check at troughs (t ≈ 40 s, 60 s) shows the
-  detection landing right on the meniscus.
-- Detector confidence dips during troughs because less of the ruler is
-  wet/red; the smoothed trace stays reasonable but raw values are noisier.
+The auto-detector is recoverable from git history if you want to use it
+as a starting point for a different video.
