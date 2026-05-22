@@ -1,0 +1,4 @@
+old.MOV
+__pycache__/
+*.pyc
+.DS_Store
