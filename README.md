@@ -1,8 +1,7 @@
 # CMR phantom water-level analysis
 
-A short experiment: the water level in a clear cylindrical column rises and
-falls under a pulsatile flow driver, with a steel ruler dipped in for scale.
-The water carries a faint red dye to make the meniscus easier to see.
+A short experiment: the water level in a cylindrical column rises and
+falls under a pulsatile inflating balloon suspended in the column, with a steel ruler dipped in for scale.
 
 The repo contains a small toolchain to extract water level vs time from the
 video and convert it to a volume change using the column's inner
