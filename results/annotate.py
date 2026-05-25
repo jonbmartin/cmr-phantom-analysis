@@ -28,9 +28,16 @@ CROP_X0, CROP_X1 = 900, 1500
 CROP_Y0, CROP_Y1 = 150, 1080
 
 # calibration (for live cm readout under the cursor)
-CAL_CM = np.array([21, 20, 19, 18, 17, 16, 15, 14, 13], dtype=float)
-CAL_Y  = np.array([62, 183, 322, 445, 658, 788, 892, 974, 1049], dtype=float)
-y_to_cm = np.poly1d(np.polyfit(CAL_Y, CAL_CM, 2))
+# calibration — load from file if available, else use coded defaults
+_CAL_FILE = HERE / 'calibration.json'
+if _CAL_FILE.exists():
+    _cal = json.load(open(_CAL_FILE))
+    CAL_CM = np.array(_cal['cal_cm'], dtype=float)
+    CAL_Y  = np.array(_cal['cal_y'],  dtype=float)
+else:
+    CAL_CM = np.array([21, 20, 19, 18, 17, 16, 15, 14, 13], dtype=float)
+    CAL_Y  = np.array([62, 183, 322, 445, 658, 788, 892, 974, 1049], dtype=float)
+y_to_cm = lambda y: np.interp(y, CAL_Y, CAL_CM)
 
 def main():
     cap = cv2.VideoCapture(str(VIDEO))
